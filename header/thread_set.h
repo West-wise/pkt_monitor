@@ -33,7 +33,9 @@ typedef struct StackedValue {
 	unsigned int s_det_pps,  s_det_bps;
 } StackedValue;
 
-
+/**
+drop패킷은 패킷핸들러, 작업스레드, db스레드에서 패킷처리에 null이 발생한다면 모두 drop처리
+*/
 typedef struct TotalValue {
 	unsigned int total_pps, total_bps, total_drop;
 	unsigned int t_tcp_pps, t_tcp_bps;
@@ -42,6 +44,7 @@ typedef struct TotalValue {
 	unsigned int t_etc_pps, t_etc_bps;
 	unsigned int t_det_pps, t_det_bps;
 } TotalValue;
+
 
 void sum_data(StackedValue *st_val, TotalValue *t_val);
 
@@ -60,9 +63,16 @@ int create_worker_thread(pthread_t *thread, MutexQueue *worker_queue,MutexQueue 
 
 
 /** db thread func **/
+
+typedef struct DBThreadInfo{
+	MutexQueue *queue;
+	GlobalStats *stat;
+} DBThreadInfo;
+
+
 void *db_thread_work(void *arg);
 
-int create_db_thread(pthread_t *thread, MutexQueue *db_queue);
+int create_db_thread(pthread_t *thread, DBThreadInfo *db_info);
 
 /** print thread func **/
 

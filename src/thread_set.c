@@ -218,8 +218,9 @@ int create_worker_thread(pthread_t *thread, MutexQueue *worker_queue, MutexQueue
 void *db_thread_work(void *arg){
 	time_t t = time(NULL);
 	struct tm *time = localtime(&t);
-
-	MutexQueue *queue = (MutexQueue *)arg;
+	DBThreadInfo *info = (DBThreadInfo *)arg;
+	MutexQueue *queue = info->queue;
+	GlobalStats *stat = info->stat;
 	if(queue == NULL){
 		fprintf(stderr, "received null queueu\n");
 	}
@@ -246,6 +247,7 @@ void *db_thread_work(void *arg){
 				if(begin_transaction()!= -1){
 				for(int i = 0; i< loop_cnt; i++){
 					if(insert_op(db_op_buffer[i])== -1){
+						atomic_fetch_add(&stat->g_drop_cnt,1); // insert 실패시 패킷 처리 실패로 간주
 						fprintf(stderr, "Failed to insert data!\n");
 					}
 					free(db_op_buffer[i]->matched_pattern);
@@ -282,6 +284,7 @@ void *db_thread_work(void *arg){
 			if(begin_transaction()!= -1){
 				for(int i = 0; i< DB_BATCH_SIZE; i++){
 					if(insert_op(db_op_buffer[i])== -1){
+						atomic_fetch_add(&stat->g_drop_cnt,1); // insert 실패시 패킷 처리 실패로 간주
 						fprintf(stderr, "Failed to insert data!\n");
 					}
 					free(db_op_buffer[i]->matched_pattern);
@@ -298,8 +301,8 @@ void *db_thread_work(void *arg){
 }
 
 
-int create_db_thread(pthread_t *thread, MutexQueue *db_queue){
-	if(pthread_create(thread, NULL, db_thread_work, (void *)db_queue) != 0){
+int create_db_thread(pthread_t *thread, DBThreadInfo *db_info){
+	if(pthread_create(thread, NULL, db_thread_work, (void *)db_info) != 0){
 		fprintf(stderr, "Failed to create db thread\n");
 		return -1;
 	}
@@ -390,7 +393,7 @@ int create_printer_thread(pthread_t *thread, GlobalStats **all_stats, int thread
 		return -1;
 	}
 	args->all_thread_stats = all_stats;
-	args->thread_cnt = thread_cnt;
+	args->thread_cnt = thread_cnt + 2;
 	if(pthread_create(thread, NULL, print_thread_work, (void*)args) != 0){
 		fprintf(stderr, "Failed to create woker thread\n");
 		free(args);

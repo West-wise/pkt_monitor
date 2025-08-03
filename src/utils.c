@@ -93,6 +93,8 @@ void atomic_init_func(GlobalStats *g_stats){
 	atomic_init(&g_stats->icmp_stats.byte_cnt, 0);
 	atomic_init(&g_stats->etc_stats.packet_cnt, 0);
 	atomic_init(&g_stats->etc_stats.byte_cnt, 0);
+	atomic_init(&g_stats->detected_stats.packet_cnt, 0);
+	atomic_init(&g_stats->detected_stats.byte_cnt, 0);
 }
 
 

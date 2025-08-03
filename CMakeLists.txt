@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
-# set(CMAKE_C_FLAGS_DEBUG "-g -O0")
-# set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_C_FLAGS_DEBUG "-g -O0")
+set(CMAKE_BUILD_TYPE Debug)
 
 # set jemlloc path
 link_directories(/usr/lib/x86_64-linux-gnu)
@@ -35,6 +35,7 @@ add_executable(project1_psh ${SOURCES})
 
 
 # lib linking
-target_link_libraries(project1_psh ${PCAP_LIBRARY} SQLite::SQLite3 Threads::Threads jemalloc)
+# target_link_libraries(project1_psh ${PCAP_LIBRARY} SQLite::SQLite3 Threads::Threads jemalloc)
+target_link_libraries(project1_psh ${PCAP_LIBRARY} SQLite::SQLite3 Threads::Threads)
 
 
