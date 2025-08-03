@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
-set(CMAKE_C_FLAGS_DEBUG "-g -O0")
-
+# set(CMAKE_C_FLAGS_DEBUG "-g -O0")
+# set(CMAKE_BUILD_TYPE Debug)
 
 # set jemlloc path
 link_directories(/usr/lib/x86_64-linux-gnu)
@@ -14,13 +14,12 @@ include_directories(${CMAKE_SOURCE_DIR}/header)
 
 # set source var
 set(SOURCES
-        ${CMAKE_SOURCE_DIR}/src/log_db.c
-        ${CMAKE_SOURCE_DIR}/src/queue_set.c
-        ${CMAKE_SOURCE_DIR}/src/thread_set.c
-        ${CMAKE_SOURCE_DIR}/src/pattern.c
-        ${CMAKE_SOURCE_DIR}/src/bm.c
-        ${CMAKE_SOURCE_DIR}/src/utils.c
-        ${CMAKE_SOURCE_DIR}/src/main.c
+    ${CMAKE_SOURCE_DIR}/src/log_db.c
+	${CMAKE_SOURCE_DIR}/src/queue_set.c
+	${CMAKE_SOURCE_DIR}/src/thread_set.c
+	${CMAKE_SOURCE_DIR}/src/utils.c		
+	${CMAKE_SOURCE_DIR}/src/main.c
+	${CMAKE_SOURCE_DIR}/src/trie.c
 )
 
 # pcap라이브러리 찾기
@@ -37,3 +36,5 @@ add_executable(project1_psh ${SOURCES})
 
 # lib linking
 target_link_libraries(project1_psh ${PCAP_LIBRARY} SQLite::SQLite3 Threads::Threads jemalloc)
+
+

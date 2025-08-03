@@ -9,9 +9,11 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <pthread.h>
+#include <signal.h>
 #include <errno.h>
 #include <unistd.h>
 #include <time.h>
+#include <stdatomic.h>
 
 
 #endif

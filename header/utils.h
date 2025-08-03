@@ -2,16 +2,29 @@
 #define UTILS_H
 
 #include "common.h"
-#include <signal.h>
-#include "thread_set.h"
-#include "queue_set.h"
-#include "pattern.h"
-#include "bm.h"
+// #include "queue_set.h"
 
+
+typedef struct PacketStats{
+	_Atomic unsigned int packet_cnt;
+	_Atomic unsigned int byte_cnt;
+} PacketStats;
+
+typedef struct GlobalStats{
+	_Atomic unsigned int g_packet_cnt;
+	_Atomic unsigned long long g_byte_cnt;
+	_Atomic unsigned long g_drop_cnt;
+
+	PacketStats tcp_stats;
+	PacketStats udp_stats;
+	PacketStats icmp_stats;
+	PacketStats etc_stats;
+	PacketStats detected_stats;
+} GlobalStats;
 
 void usage();
 
-void handleSignal(int signal, siginfo_t *info, void *context);
+// void handleSignal(int signal, siginfo_t *info, void *context);
 
 bool interface_check(const char *interface);
 
@@ -19,10 +32,5 @@ int mode_check(int mode, char *interface, int thread_cnt, char *advanced_file_pa
 
 void atomic_init_func(GlobalStats *g_stats);
 
-int init_pattern(const char *file_path);
-
-void pattern_cleanup();
-
-void print_hex_dump(const u_char *data_ptr, unsigned int len, unsigned int offset_start);
 
 #endif
