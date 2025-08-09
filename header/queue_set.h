@@ -70,10 +70,11 @@ typedef struct MutexQueueList {
 typedef struct PcapHandlerArgs{
 	MutexQueueList *queue_list;
 	GlobalStats *handler_stats;
+	MutexQueue *retry_queue; // For pcap mode
+	int mode; // To check if in pcap mode
 	
 	int num_queues;
 	int current_queue_id;
-	// MemoryPool *packet_data_pool;
 } PcapHandlerArgs;
 
 
@@ -82,6 +83,8 @@ void initQueue(MutexQueue *mq, int max_size);
 int isEmpty(MutexQueue *mq);
 
 int isFull(MutexQueue *mq);
+
+int getQueueSize(MutexQueue *mq);
 
 int enqueue(MutexQueue *mq, QueueMessage *item); // for producers
 

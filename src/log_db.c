@@ -7,25 +7,26 @@ static const char *db_name = "detection_log.db";
 char *err_msg = NULL;
 
 int check_table_exist(){
-        if(db == NULL) {
-                fprintf(stderr, "Databse is not exist\n");
-                return -1;
-        }
-        char *sql = "SELECT * FROM detection_log;";
-	sqlite3_stmt *stmt = NULL;
-	int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
-	if(rc != SQLITE_OK){
-		fprintf(stderr,"table is not exist\n");
-		return -1;
+    if(db == NULL) {
+        fprintf(stderr, "Database is not connected\n");
+        return -1;
+    }
+    char *sql = "SELECT name FROM sqlite_master WHERE type='table' AND name='detection_log';";
+    sqlite3_stmt *stmt = NULL;
+    int rc = sqlite3_prepare_v2(db, sql, -1, &stmt, NULL);
+    if(rc != SQLITE_OK){
+        fprintf(stderr, "Failed to prepare statement: %s\n", sqlite3_errmsg(db));
+        return -1;
+    }
 
-	}
-        if(sqlite3_step(stmt) == SQLITE_ROW){
-		sqlite3_finalize(stmt);
-		return 0;
-	}
+    rc = sqlite3_step(stmt);
+    sqlite3_finalize(stmt);
 
-	sqlite3_finalize(stmt);
-	return -1;
+    if(rc == SQLITE_ROW){
+        return 0; // Table exists
+    } else {
+        return -1; // Table does not exist or an error occurred
+    }
 }
 
 int connect_db(){
@@ -133,12 +134,14 @@ int insert_op(const DBop *op){
 	}
 	// time
 	char time_str[30];
-	struct tm *info = localtime((time_t*)&op->time);
-	if(info){
-		strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", info);
+	struct tm time_info;
+	// thread-safe인 localtime_r()로 변경 및 NULL 체크
+	if(localtime_r((time_t*)&op->time, &time_info) != NULL){
+		strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", &time_info);
 	} else {
-	
+		strncpy(time_str, "1970-01-01 00:00:00", sizeof(time_str));
 	}
+
 	if(sqlite3_bind_text(stmt, 1, time_str, -1, SQLITE_TRANSIENT)!=0){
 		fprintf(stderr, "Failed to bin timestamp\n");
 	}
