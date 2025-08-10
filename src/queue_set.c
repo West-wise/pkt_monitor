@@ -23,6 +23,13 @@ int isEmpty(MutexQueue *mq){
 	return status;
 }
 
+int getQueueSize(MutexQueue *mq){
+	pthread_mutex_lock(&mq->lock);
+	int size = mq->size;
+	pthread_mutex_unlock(&mq->lock);
+	return size;
+}
+
 
 int isFull(MutexQueue *mq){
 	pthread_mutex_lock(&mq->lock);
@@ -162,6 +169,6 @@ void destroyQueueList(MutexQueueList *list){
 }
 
 MutexQueue *getQueue(MutexQueueList *list, int idx){
-	if(list == NULL || idx < 0 || idx > list->num_of_queue) return NULL;
+	if(list == NULL || idx < 0 || idx >= list->num_of_queue) return NULL;
 	return list->mutexQueue[idx];
 }

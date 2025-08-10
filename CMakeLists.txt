@@ -16,10 +16,12 @@ include_directories(${CMAKE_SOURCE_DIR}/header)
 set(SOURCES
     ${CMAKE_SOURCE_DIR}/src/log_db.c
 	${CMAKE_SOURCE_DIR}/src/queue_set.c
-	${CMAKE_SOURCE_DIR}/src/thread_set.c
 	${CMAKE_SOURCE_DIR}/src/utils.c		
 	${CMAKE_SOURCE_DIR}/src/main.c
 	${CMAKE_SOURCE_DIR}/src/trie.c
+	${CMAKE_SOURCE_DIR}/src/worker_thread.c
+	${CMAKE_SOURCE_DIR}/src/db_thread.c
+	${CMAKE_SOURCE_DIR}/src/printer_thread.c
 )
 
 # pcap라이브러리 찾기

@@ -1,4 +1,5 @@
 #include "trie.h"
+#include <ctype.h>
 
 #define LINE_LENGTH 1024
 
@@ -31,13 +32,16 @@ void insert(TrieNode *root, const char *host){
 		return;
 	}
 	while(*host){
-		int idx = char_to_idx(*host);
-		if(idx < 0 || idx >= 38) return;
+		int idx = char_to_idx(tolower(*host));
+		if(idx < 0 || idx >= 38) {
+			host++;
+			continue;
+		};
 		if(current->trieNode[idx]==NULL){
 			TrieNode *tmp_node = createNode();
 			if(tmp_node == NULL){
 				fprintf(stderr, "create trie node fail\n");
-				continue;
+				return;
 			}
 			current->trieNode[idx] = tmp_node;
 		}
@@ -51,8 +55,11 @@ int find(TrieNode *root, const char *host){
 	if(root == NULL || host == NULL) return -1;
 	TrieNode *current = root;
 	while(*host){
-		int idx = char_to_idx(*host);
-		if(idx < 0 || idx >= 38) return -1;
+		int idx = char_to_idx(tolower(*host));
+		if(idx < 0 || idx >= 38) {
+			host++;
+			continue;
+		}
 		if(current->trieNode[idx] == NULL){
 			return -1;
 		}

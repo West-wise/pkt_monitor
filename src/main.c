@@ -3,14 +3,17 @@
 
 #include "common.h"
 #include "utils.h"
-#include "thread_set.h"
 #include "queue_set.h"
 #include "trie.h"
+#include "worker_thread.h"
+#include "db_thread.h"
+#include "printer_thread.h"
 
 #define QUEUE_SIZE 1024
 
 TrieNode *trie = NULL;
 sig_atomic_t sig_stop = 0;
+sig_atomic_t db_get_signal = 0;
 
 void handleSignal(int signal, siginfo_t *info, void *context){
 	sig_stop = 1;
@@ -47,8 +50,27 @@ void packet_handler(u_char *user_data, const struct pcap_pkthdr *pkthdr, const u
 		printf("ramain packet processing..\n");
 	}
 	PcapHandlerArgs *args = (PcapHandlerArgs *)user_data;
-	// 일단 테스트 용으로 인덱스만 순환
-	args->current_queue_id = (args->current_queue_id + 1) % args->num_queues;
+	// Intelligent Round-Robin: Find the least busy queue
+	int best_queue_id = -1;
+	int min_size = QUEUE_SIZE + 1;
+
+	for (int i = 0; i < args->num_queues; i++) {
+		MutexQueue *q = getQueue(args->queue_list, i);
+		if (q) {
+			int current_size = getQueueSize(q);
+			if (current_size < min_size) {
+				min_size = current_size;
+				best_queue_id = i;
+			}
+		}
+	}
+
+	if (best_queue_id == -1) {
+		fprintf(stderr, "No valid queues found\n");
+		return;
+	}
+
+	args->current_queue_id = best_queue_id;
 	MutexQueue *target_queue = getQueue(args->queue_list, args->current_queue_id);
 	GlobalStats *stats = (args->handler_stats);
 	if(target_queue == NULL){
@@ -75,11 +97,22 @@ void packet_handler(u_char *user_data, const struct pcap_pkthdr *pkthdr, const u
 
 	item->data.packet_info = pInfo;
 
-	if(enqueue(target_queue, item)!= 0){
-		fprintf(stderr, "enqueueing error\n");
-		atomic_fetch_add(&stats->g_drop_cnt,1);
-		free(pInfo);
-		free(item);
+	if(enqueue(target_queue, item) != 0){
+		if (args->mode == 2 && args->retry_queue != NULL) {
+			// In pcap mode, if the worker queue is full, enqueue to the retry queue
+			if (enqueue(args->retry_queue, item) != 0) {
+				fprintf(stderr, "Retry queue enqueueing error\n");
+				atomic_fetch_add(&stats->g_drop_cnt, 1);
+				free(pInfo);
+				free(item);
+			}
+		} else {
+			// In live mode, or if retry queue fails, drop the packet
+			fprintf(stderr, "enqueueing error\n");
+			atomic_fetch_add(&stats->g_drop_cnt,1);
+			free(pInfo);
+			free(item);
+		}
 		return;
 	}
 }
@@ -142,6 +175,18 @@ int main(int argc, char *argv[]){
 		return -1;
 	}
 	initQueue(db_queue, QUEUE_SIZE);
+
+	// Retry queue for pcap mode
+	MutexQueue *retry_queue = NULL;
+	if (mode == 2) {
+		retry_queue = (MutexQueue*)malloc(sizeof(MutexQueue));
+		if (retry_queue == NULL) {
+			fprintf(stderr, "Failed to malloc retry_queue\n");
+			return -1;
+		}
+		initQueue(retry_queue, QUEUE_SIZE * thread_cnt); // Larger capacity for retry queue
+	}
+
 	MutexQueueList *worker_queue_list = createQueueList(thread_cnt);
 
 	GlobalStats **all_stats = (GlobalStats **)malloc(sizeof(GlobalStats *) * (thread_cnt + 2)); // thread + db + packet_handler
@@ -254,6 +299,8 @@ int main(int argc, char *argv[]){
 	pArgs->num_queues = thread_cnt;
 	pArgs->current_queue_id = 0;
 	pArgs->handler_stats = all_stats[packet_handler_stat_idx];
+	pArgs->retry_queue = retry_queue;
+	pArgs->mode = mode;
 
 	struct pcap_pkthdr *header; // packet header pointer
 	const u_char *packet; // packet data pointer
@@ -280,8 +327,20 @@ int main(int argc, char *argv[]){
 			}
 			break;
 		}
+
+		// Drain the retry queue first in pcap mode
+		if (mode == 2 && retry_queue != NULL && getQueueSize(retry_queue) > 0) {
+			QueueMessage *retried_item = dequeue(retry_queue);
+			if (retried_item != NULL && retried_item->type == QUEUE_ITEM_TYPE_PACKET_INFO) {
+				PacketInfo *pInfo = retried_item->data.packet_info;
+				packet_handler((u_char*)pArgs, &pInfo->header, pInfo->data);
+				free(pInfo);
+			}
+			free(retried_item);
+			continue; // Prioritize retry queue over new packets
+		}
+
 		if(handle == NULL) fprintf(stderr, "handle is null\n");
-		// res = pcap_next_ex(handle, &header, &packet);
 		res = pcap_next_ex(handle, &header, &packet);
 		switch(res){
 			case 0: //timeout
@@ -333,6 +392,10 @@ int main(int argc, char *argv[]){
 	free(db_queue);
 	free(db_info);
 	destroyQueueList(worker_queue_list);
+	if (retry_queue != NULL) {
+		destroyQueue(retry_queue);
+		free(retry_queue);
+	}
 	
 
 	if(all_stats != NULL){
