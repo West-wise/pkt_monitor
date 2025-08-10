@@ -1,88 +1,88 @@
-# Performance Measurement Guide for pkt_monitor
+# pkt_monitor 성능 측정 가이드
 
-## 1. Overview
+## 1. 개요
 
-This guide provides a methodology for measuring the performance of the `pkt_monitor` application. The primary goal is to determine its maximum packet processing capacity and identify potential bottlenecks under various network conditions.
+이 문서는 `pkt_monitor` 애플리케이션의 성능을 측정하는 방법론을 제공합니다. 주된 목표는 다양한 네트워크 조건 하에서 애플리케이션의 최대 패킷 처리 용량을 결정하고 잠재적인 병목 지점을 식별하는 것입니다.
 
-Performance testing is crucial for understanding how the application behaves under high load and for validating the impact of any code changes or optimizations.
+성능 테스트는 높은 부하 상태에서 애플리케이션이 어떻게 동작하는지 이해하고, 코드 변경이나 최적화의 영향을 검증하는 데 매우 중요합니다.
 
-## 2. Key Performance Metrics
+## 2. 핵심 성능 지표
 
-The following metrics are essential for evaluating the performance of `pkt_monitor`:
+`pkt_monitor`의 성능을 평가하기 위해 다음 지표들이 필수적입니다:
 
-*   **Packets Per Second (PPS):** The number of packets the application processes per second. This is a primary measure of packet processing throughput.
-*   **Bits Per Second (BPS):** The amount of data (in bits) the application processes per second. This is a measure of network bandwidth throughput.
-*   **Packet Drop Rate:** The number and percentage of packets that the application fails to process. This can be measured in two places:
-    *   **Kernel/Interface Drops:** Reported by `pcap_stats` at the end of the run. These are packets dropped by the OS kernel or the network card before they even reach the application.
-    *   **Application Drops:** Reported by `pkt_monitor`'s own statistics (`DROP` counter). These are packets that were successfully read by the application but were dropped internally (e.g., queue was full in live mode).
-*   **CPU Usage:** The percentage of CPU time consumed by the `pkt_monitor` process and its threads. High CPU usage (approaching 100% on one or more cores) indicates a CPU bottleneck.
-*   **Memory Usage:** The amount of RAM consumed by the application. This should be monitored to detect memory leaks and ensure efficient memory use.
+*   **PPS (Packets Per Second):** 초당 처리하는 패킷의 수. 패킷 처리량의 주요 척도입니다.
+*   **BPS (Bits Per Second):** 초당 처리하는 데이터의 양 (비트 단위). 네트워크 대역폭 처리량의 척도입니다.
+*   **패킷 손실률 (Packet Drop Rate):** 애플리케이션이 처리하지 못한 패킷의 수와 비율. 두 지점에서 측정될 수 있습니다:
+    *   **커널/인터페이스 레벨 손실:** 프로그램 종료 시 `pcap_stats`에 의해 보고됩니다. 이는 패킷이 애플리케이션에 도달하기도 전에 OS 커널이나 네트워크 카드에서 버려진 경우입니다.
+    *   **애플리케이션 레벨 손실:** `pkt_monitor`의 자체 통계(`DROP` 카운터)에 의해 보고됩니다. 이는 패킷을 성공적으로 읽었지만, 내부적으로 (예: 라이브 모드에서 큐가 가득 차서) 버려진 경우입니다.
+*   **CPU 사용률:** `pkt_monitor` 프로세스와 그 스레드들이 소모하는 CPU 시간의 비율. 하나 이상의 코어에서 CPU 사용률이 100%에 가까워지면 CPU 병목을 의미합니다.
+*   **메모리 사용량:** 애플리케이션이 소모하는 RAM의 양. 메모리 누수를 탐지하고 효율적인 메모리 사용을 보장하기 위해 모니터링해야 합니다.
 
-## 3. Recommended Tools
+## 3. 권장 도구
 
-*   **Traffic Generation:**
-    *   **`iperf3`:** Excellent for generating high-volume TCP or UDP traffic to measure BPS.
-    *   **`hping3` or `packETH`:** More advanced tools for crafting custom packets with specific sizes and rates, which is better for measuring PPS.
-*   **System Monitoring:**
-    *   **`htop`:** Provides a real-time, user-friendly view of CPU and memory usage per thread.
-    *   **`vmstat`:** A command-line tool to report system-wide statistics like CPU context switches and interrupts.
-*   **Profiling (Advanced):**
-    *   **`perf`:** A powerful Linux profiling tool that can identify "hot spots" (functions where the most CPU time is spent) in the code.
+*   **트래픽 생성:**
+    *   **`iperf3`:** 대용량 TCP 또는 UDP 트래픽을 생성하여 BPS를 측정하는 데 탁월합니다.
+    *   **`hping3` 또는 `packETH`:** 특정 크기와 속도를 가진 커스텀 패킷을 만드는 데 더 적합하며, PPS를 정밀하게 측정하는 데 좋습니다.
+*   **시스템 모니터링:**
+    *   **`htop`:** 스레드별 CPU 및 메모리 사용량을 실시간으로 보기 쉽게 보여줍니다.
+    *   **`vmstat`:** CPU 컨텍스트 스위치나 인터럽트 같은 시스템 전반의 통계를 보고하는 커맨드 라인 도구입니다.
+*   **프로파일링 (고급):**
+    *   **`perf`:** 코드 내에서 CPU 시간을 가장 많이 소모하는 "핫스팟" 함수를 식별할 수 있는 강력한 리눅스 프로파일링 도구입니다.
 
-## 4. Testing Methodology
+## 4. 테스트 방법론
 
-A typical test setup involves two machines connected via a dedicated, high-speed network link (e.g., 10Gbps Ethernet) to avoid interference from other network traffic.
+일반적인 테스트 환경은 다른 네트워크 트래픽의 간섭을 피하기 위해 전용 고속 네트워크(예: 10Gbps 이더넷)로 연결된 두 대의 머신으로 구성됩니다.
 
-*   **Machine A (Sender):** Runs the traffic generation tool.
-*   **Machine B (Receiver):** Runs the `pkt_monitor` application.
+*   **머신 A (송신 측):** 트래픽 생성 도구를 실행합니다.
+*   **머신 B (수신 측):** `pkt_monitor` 애플리케이션을 실행합니다.
 
-**Step-by-Step Guide:**
+**단계별 가이드:**
 
-1.  **Prepare `pkt_monitor`:**
-    *   On Machine B, compile the latest version of `pkt_monitor` in **release mode** (not debug mode) for maximum performance. You can do this by changing `CMAKE_BUILD_TYPE` in `CMakeLists.txt` from `Debug` to `Release` and removing the `-g -O0` flags.
+1.  **`pkt_monitor` 준비:**
+    *   머신 B에서, 최대 성능을 위해 `pkt_monitor`를 **릴리즈 모드(Release Mode)**로 컴파일합니다. `CMakeLists.txt`에서 `CMAKE_BUILD_TYPE`을 `Debug`에서 `Release`로 변경하고 `-g -O0` 플래그를 제거하여 최적화 옵션을 활성화할 수 있습니다.
     *   `set(CMAKE_BUILD_TYPE Release)`
-    *   `set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG")` (or similar optimization flags)
+    *   `set(CMAKE_C_FLAGS_RELEASE "-O3 -DNDEBUG")` (또는 유사한 최적화 플래그)
 
-2.  **Start `pkt_monitor`:**
-    *   On Machine B, start `pkt_monitor`, telling it to listen on the interface connected to Machine A. Use a number of threads that matches the number of available CPU cores.
+2.  **`pkt_monitor` 시작:**
+    *   머신 B에서, 머신 A와 연결된 인터페이스를 지정하여 `pkt_monitor`를 시작합니다. 사용 가능한 CPU 코어 수에 맞춰 스레드 수를 지정하는 것이 좋습니다.
     ```bash
-    # Example with 4 worker threads on interface eth0
-    ./build/project1_psh -i eth0 -t 4 -a build/top-1m.csv
+    # 예: eth0 인터페이스에서 4개의 워커 스레드로 실행
+    ./build/project1_psh -i eth0 -t 4 -a top-1m.csv
     ```
 
-3.  **Start System Monitoring:**
-    *   On Machine B, in a separate terminal, start `htop` to monitor the `project1_psh` process.
+3.  **시스템 모니터링 시작:**
+    *   머신 B의 다른 터미널에서 `htop`을 실행하여 `project1_psh` 프로세스를 모니터링합니다.
     ```bash
     htop -p $(pgrep project1_psh)
     ```
 
-4.  **Generate Traffic:**
-    *   On Machine A, start your chosen traffic generator.
-    *   **Example with `iperf3` (for BPS testing):**
+4.  **트래픽 생성:**
+    *   머신 A에서, 선택한 트래픽 생성 도구를 시작합니다.
+    *   **`iperf3` 예제 (BPS 테스트용):**
         ```bash
-        # On Machine B, start iperf3 server
+        # 머신 B에서 iperf3 서버 시작
         iperf3 -s
-        # On Machine A, start iperf3 client, sending data to Machine B's IP
-        iperf3 -c <IP_of_Machine_B> -t 60 -b 5G # Send 5 Gbps for 60 seconds
+        # 머신 A에서 iperf3 클라이언트 시작 (머신 B의 IP로 데이터 전송)
+        iperf3 -c <머신_B_IP> -t 60 -b 5G # 60초 동안 5Gbps 트래픽 전송
         ```
-    *   **Example with `hping3` (for PPS testing):**
+    *   **`hping3` 예제 (PPS 테스트용):**
         ```bash
-        # On Machine A, send small UDP packets as fast as possible
-        sudo hping3 --udp -p 5001 --fast <IP_of_Machine_B>
+        # 머신 A에서 작은 UDP 패킷을 가능한 한 빨리 전송
+        sudo hping3 --udp -p 5001 --fast <머신_B_IP>
         ```
 
-5.  **Collect Results:**
-    *   During the test, observe the real-time statistics printed by `pkt_monitor` every second. Note the PPS and BPS values.
-    *   Observe `htop` to see if any of the threads (main capture thread or worker threads) are hitting 100% CPU.
-    *   When the test is complete (or when you stop `pkt_monitor` with Ctrl+C), it will print a final report. Record the total packets, bytes, and drops.
+5.  **결과 수집:**
+    *   테스트 중, `pkt_monitor`가 매초 출력하는 실시간 통계를 관찰하고 PPS와 BPS 값을 기록합니다.
+    *   `htop`을 통해 특정 스레드(메인 캡처 스레드 또는 워커 스레드)가 100% CPU에 도달하는지 확인합니다.
+    *   테스트가 완료되거나 Ctrl+C로 `pkt_monitor`를 중지하면 최종 보고서가 출력됩니다. 총 패킷, 바이트, 손실 수를 기록합니다.
 
-## 5. Interpreting the Results
+## 5. 결과 분석
 
-*   **CPU Bottleneck:** If one or more threads are consistently at or near 100% CPU, the application is CPU-bound.
-    *   If the **main thread** is the bottleneck, the packet capture and distribution logic may be too slow.
-    *   If the **worker threads** are the bottleneck, the packet processing logic (parsing, trie search) is the slow part.
-    *   Use `perf` to dig deeper and find the exact functions causing the high CPU usage.
-*   **No CPU Bottleneck, High Drop Rate:** If CPU usage is not at 100% but the drop rate is high (especially kernel drops), it could indicate a problem with the OS network stack tuning or a limitation of the `libpcap` buffer.
-*   **Memory Growth:** If memory usage in `htop` continuously increases throughout the test, it may indicate a memory leak that was not caught in the review.
+*   **CPU 병목:** 하나 이상의 스레드가 지속적으로 100% CPU 사용률에 도달한다면, 애플리케이션은 CPU에 의해 성능이 제한(CPU-bound)된 것입니다.
+    *   **메인 스레드**가 병목이라면, 패킷 캡처 및 분배 로직이 너무 느릴 수 있습니다.
+    *   **워커 스레드**가 병목이라면, 패킷 처리 로직(파싱, Trie 검색 등)이 느린 부분입니다.
+    *   `perf`를 사용하여 높은 CPU 사용률을 유발하는 정확한 함수를 찾아내십시오.
+*   **CPU 병목은 없으나 높은 손실률:** CPU 사용률이 100%가 아닌데도 패킷 손실률(특히 커널 레벨 손실)이 높다면, OS 네트워크 스택 튜닝 문제이거나 `libpcap` 버퍼의 한계일 수 있습니다.
+*   **메모리 증가:** `htop`에서 메모리 사용량이 테스트 내내 계속 증가한다면, 코드 리뷰에서 발견하지 못한 메모리 누수가 있음을 의미할 수 있습니다.
 
-By incrementally increasing the traffic rate (e.g., from 1Gbps to 2Gbps, and so on), you can find the "breaking point" where the application can no longer keep up and starts dropping a significant number of packets. This point represents the application's maximum processing capacity.
+트래픽 속도를 점진적으로(예: 1Gbps에서 2Gbps로) 늘려가면서, 애플리케이션이 더 이상 감당하지 못하고 상당한 수의 패킷을 손실하기 시작하는 "한계점(breaking point)"을 찾을 수 있습니다. 이 지점이 바로 이 애플리케이션의 최대 처리 용량입니다.
